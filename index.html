@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Interview Buddy">
+<title>Interview Buddy</title>
+<style>
+:root {
+  --bg:#080810;--surface:#10101c;--surface2:#18182a;--surface3:#20203a;
+  --border:rgba(255,255,255,0.07);--border-mid:rgba(255,255,255,0.13);
+  --text:#f0f0f8;--text-muted:rgba(240,240,248,0.5);--text-dim:rgba(240,240,248,0.28);
+  --accent:#7c6fff;--accent-soft:rgba(124,111,255,0.13);--accent-border:rgba(124,111,255,0.38);
+  --green:#34d399;--green-soft:rgba(52,211,153,0.11);--green-border:rgba(52,211,153,0.32);
+  --amber:#fbbf24;--amber-soft:rgba(251,191,36,0.11);--amber-border:rgba(251,191,36,0.32);
+  --red:#f87171;--red-soft:rgba(248,113,113,0.11);--red-border:rgba(248,113,113,0.32);
+  --font:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',Arial,sans-serif;
+  --radius:14px;--radius-sm:9px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);font-size:16px;line-height:1.6;overflow:hidden;}
+
+/* ── LAYOUT ── */
+#app{display:flex;flex-direction:column;height:100vh;height:100dvh;}
+
+#header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 20px 12px;
+  border-bottom:1px solid var(--border);
+  flex-shrink:0;background:var(--bg);
+  padding-top:max(14px,env(safe-area-inset-top));
+}
+#header-left{display:flex;align-items:center;gap:10px;}
+.logo-dot{width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px rgba(124,111,255,0.7);}
+#header h1{font-size:16px;font-weight:600;letter-spacing:-0.02em;}
+
+#status-pill{
+  display:flex;align-items:center;gap:6px;
+  padding:5px 13px;border-radius:20px;
+  border:1px solid var(--border-mid);background:var(--surface2);
+  font-size:12px;font-weight:500;color:var(--text-muted);
+  transition:all 0.3s;
+}
+#status-dot{width:7px;height:7px;border-radius:50%;background:var(--text-dim);transition:all 0.3s;}
+#status-pill.listening{border-color:var(--green-border);background:var(--green-soft);color:var(--green);}
+#status-pill.listening #status-dot{background:var(--green);box-shadow:0 0 6px var(--green);animation:pulse 1.4s infinite;}
+#status-pill.processing{border-color:var(--accent-border);background:var(--accent-soft);color:var(--accent);}
+#status-pill.processing #status-dot{background:var(--accent);animation:pulse 0.9s infinite;}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:0.45;transform:scale(0.75);}}
+
+/* ── API KEY SETUP SCREEN ── */
+#setup-screen{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:32px 24px;gap:20px;text-align:center;
+}
+#setup-screen .setup-icon{font-size:40px;margin-bottom:4px;}
+#setup-screen h2{font-size:22px;font-weight:600;letter-spacing:-0.02em;}
+#setup-screen p{font-size:14px;color:var(--text-muted);max-width:300px;line-height:1.7;}
+.setup-input-wrap{width:100%;max-width:380px;display:flex;flex-direction:column;gap:10px;}
+#api-key-input{
+  width:100%;background:var(--surface2);border:1px solid var(--border-mid);
+  border-radius:var(--radius-sm);padding:13px 14px;
+  font-family:var(--font);font-size:15px;color:var(--text);
+  outline:none;-webkit-appearance:none;letter-spacing:0.04em;
+}
+#api-key-input:focus{border-color:var(--accent-border);}
+#api-key-input::placeholder{color:var(--text-dim);letter-spacing:0;}
+#save-key-btn{
+  width:100%;padding:14px;background:var(--accent);border:none;border-radius:var(--radius-sm);
+  color:#fff;font-family:var(--font);font-size:15px;font-weight:600;cursor:pointer;
+  letter-spacing:-0.01em;
+}
+#save-key-btn:active{opacity:0.85;}
+.setup-note{font-size:12px;color:var(--text-dim);line-height:1.6;max-width:300px;}
+
+/* ── MAIN SCROLL ── */
+#main{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:16px 16px 120px;display:flex;flex-direction:column;gap:14px;}
+
+/* ── IDLE ── */
+#idle-state{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px 20px;gap:16px;}
+.idle-icon{width:72px;height:72px;border-radius:50%;background:var(--surface2);border:1px solid var(--border-mid);display:flex;align-items:center;justify-content:center;font-size:30px;}
+#idle-state h2{font-size:22px;font-weight:600;letter-spacing:-0.02em;}
+#idle-state p{font-size:14px;color:var(--text-muted);max-width:280px;line-height:1.75;}
+.help-tip{font-size:11px;color:var(--text-dim);letter-spacing:0.02em;}
+
+/* ── CARDS ── */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;animation:slide-up 0.28s ease;}
+@keyframes slide-up{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+.card-label{display:flex;align-items:center;gap:7px;padding:10px 14px;border-bottom:1px solid var(--border);font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-dim);background:var(--surface2);}
+.card-label .dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.question-card .card-label .dot{background:var(--amber);}
+.answer-card .card-label .dot{background:var(--green);}
+.question-text{padding:14px 16px;font-size:18px;font-weight:400;line-height:1.5;color:var(--text);}
+.countdown-bar{height:3px;background:var(--border);position:relative;overflow:hidden;}
+.countdown-fill{position:absolute;left:0;top:0;height:100%;background:var(--amber);width:100%;}
+.question-actions{display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--border);flex-wrap:wrap;}
+.answer-body{padding:14px 16px;}
+.answer-opener{font-size:18px;font-weight:500;color:var(--text);margin-bottom:13px;line-height:1.48;padding-bottom:13px;border-bottom:1px solid var(--border);}
+.answer-points{display:flex;flex-direction:column;gap:11px;}
+.answer-point{display:flex;gap:11px;align-items:flex-start;}
+.point-marker{width:5px;height:5px;border-radius:50%;background:var(--accent);margin-top:9px;flex-shrink:0;}
+.point-text{font-size:15px;line-height:1.68;color:var(--text);}
+.answer-actions{padding:10px 12px;border-top:1px solid var(--border);}
+
+/* Answer Fix section */
+.answer-fix-section{padding:12px;border-top:1px solid var(--border);background:var(--surface2);display:flex;flex-direction:column;gap:10px;}
+.fix-label{font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-dim);}
+.fix-options{display:flex;gap:8px;flex-wrap:wrap;}
+.fix-option{
+  flex:1;min-width:140px;padding:11px 13px;
+  background:var(--surface3);border:1px solid var(--border-mid);border-radius:var(--radius-sm);
+  font-family:var(--font);font-size:13px;font-weight:500;color:var(--text-muted);
+  cursor:pointer;text-align:left;transition:all 0.18s;line-height:1.4;
+}
+.fix-option.selected,.fix-option:active{background:var(--accent-soft);border-color:var(--accent-border);color:var(--accent);}
+.fix-opt-title{font-size:13px;font-weight:600;margin-bottom:3px;}
+.fix-opt-desc{font-size:11px;opacity:0.72;}
+.answer-new-card{background:var(--surface);border:1px solid var(--accent-border);border-radius:var(--radius-sm);overflow:hidden;margin-top:4px;}
+.answer-new-label{display:flex;align-items:center;gap:7px;padding:9px 13px;border-bottom:1px solid var(--accent-border);font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--accent);background:var(--accent-soft);}
+.answer-new-label .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);flex-shrink:0;}
+
+/* Fix input */
+.fix-input-card{background:var(--surface2);border:1px solid var(--border-mid);border-radius:var(--radius-sm);padding:11px;display:flex;flex-direction:column;gap:9px;margin:8px 12px 4px;}
+.fix-input-card textarea{width:100%;background:var(--surface3);border:1px solid var(--border-mid);border-radius:var(--radius-sm);padding:11px 13px;font-family:var(--font);font-size:15px;color:var(--text);resize:none;min-height:64px;outline:none;-webkit-appearance:none;}
+.fix-input-card textarea:focus{border-color:var(--accent-border);}
+.fix-input-card textarea::placeholder{color:var(--text-dim);}
+.fix-input-row{display:flex;gap:8px;}
+
+/* Repeat */
+.repeat-card{background:var(--amber-soft);border:1px solid var(--amber-border);border-radius:var(--radius-sm);padding:12px 14px;display:flex;align-items:center;gap:12px;font-size:14px;color:var(--amber);margin:8px 12px 4px;}
+.repeat-anim{width:32px;height:32px;border-radius:50%;border:2px solid var(--amber);display:flex;align-items:center;justify-content:center;font-size:15px;animation:ring 1.2s infinite;flex-shrink:0;}
+@keyframes ring{0%,100%{transform:scale(1);}50%{transform:scale(1.18);}}
+
+/* Loader */
+.inline-loader{display:flex;align-items:center;gap:11px;padding:15px 16px;color:var(--text-muted);font-size:14px;}
+.loader-dots{display:flex;gap:5px;}
+.loader-dots span{width:5px;height:5px;border-radius:50%;background:var(--accent);animation:dbounce 1.2s infinite;}
+.loader-dots span:nth-child(2){animation-delay:0.2s;}
+.loader-dots span:nth-child(3){animation-delay:0.4s;}
+@keyframes dbounce{0%,80%,100%{transform:translateY(0);opacity:0.35;}40%{transform:translateY(-5px);opacity:1;}}
+
+/* ── BUTTONS ── */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;font-family:var(--font);font-size:12px;font-weight:600;cursor:pointer;border:1px solid transparent;transition:transform 0.15s;white-space:nowrap;letter-spacing:0.01em;-webkit-appearance:none;}
+.btn:active{transform:scale(0.95);}
+.btn-ghost{background:var(--surface2);border-color:var(--border-mid);color:var(--text-muted);}
+.btn-amber{background:var(--amber-soft);border-color:var(--amber-border);color:var(--amber);}
+.btn-accent{background:var(--accent-soft);border-color:var(--accent-border);color:var(--accent);}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:#fff;padding:9px 20px;font-size:13px;}
+
+/* ── BOTTOM BAR ── */
+#bottom-bar{
+  position:fixed;bottom:0;left:0;right:0;
+  padding:12px 20px;
+  padding-bottom:max(14px,env(safe-area-inset-bottom));
+  background:linear-gradient(to top,var(--bg) 65%,transparent);
+  display:flex;flex-direction:column;align-items:center;gap:6px;z-index:100;
+}
+#listen-btn{
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  width:100%;max-width:380px;padding:16px 24px;
+  background:var(--accent);border:none;border-radius:50px;
+  color:#fff;font-family:var(--font);font-size:16px;font-weight:600;
+  cursor:pointer;letter-spacing:-0.01em;
+  box-shadow:0 4px 28px rgba(124,111,255,0.4);
+  transition:all 0.2s;
+}
+#listen-btn:active{transform:scale(0.97);}
+#listen-btn.active{background:var(--red);box-shadow:0 4px 28px rgba(248,113,113,0.4);}
+#listen-btn svg{width:18px;height:18px;fill:currentColor;flex-shrink:0;}
+
+#main::-webkit-scrollbar{width:3px;}
+#main::-webkit-scrollbar-track{background:transparent;}
+#main::-webkit-scrollbar-thumb{background:var(--border-mid);border-radius:3px;}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- HEADER -->
+  <div id="header">
+    <div id="header-left">
+      <div class="logo-dot"></div>
+      <h1>Interview Buddy</h1>
+    </div>
+    <div id="status-pill">
+      <div id="status-dot"></div>
+      <span id="status-text">Ready</span>
+    </div>
+  </div>
+
+  <!-- API KEY SETUP (shown if no key saved) -->
+  <div id="setup-screen" style="display:none">
+    <div class="setup-icon">🔑</div>
+    <h2>One-time setup</h2>
+    <p>Enter your Anthropic API key to power the live answers. It's saved on this device only — never sent anywhere except directly to Anthropic.</p>
+    <div class="setup-input-wrap">
+      <input type="password" id="api-key-input" placeholder="sk-ant-..." autocomplete="off" autocorrect="off" spellcheck="false">
+      <button id="save-key-btn" onclick="saveApiKey()">Save & Start</button>
+    </div>
+    <p class="setup-note">Get a free API key at console.anthropic.com — costs pennies per interview session.</p>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <div id="main" style="display:none">
+    <div id="idle-state">
+      <div class="idle-icon">🎯</div>
+      <h2>Ready when you are</h2>
+      <p>Tap Start Listening. I'll detect questions from the audio and generate answers in your voice.</p>
+      <p class="help-tip">Long-press the header to clear session &nbsp;·&nbsp; T key fires a test question</p>
+    </div>
+  </div>
+
+  <!-- BOTTOM BAR -->
+  <div id="bottom-bar" style="display:none">
+    <button id="listen-btn" onclick="toggleListen()">
+      <svg viewBox="0 0 24 24"><path d="M12 1a4 4 0 0 1 4 4v6a4 4 0 0 1-8 0V5a4 4 0 0 1 4-4zm-6.5 10a6.5 6.5 0 0 0 13 0h-2a4.5 4.5 0 0 1-9 0h-2zM11 20.95V23h2v-2.05A9 9 0 0 0 21 12h-2a7 7 0 1 1-14 0H3a9 9 0 0 0 8 8.95z"/></svg>
+      Start Listening
+    </button>
+  </div>
+
+</div>
+<script>
+// ══════════════════════════════════════════════
+// NILS'S FULL CONTEXT
+// ══════════════════════════════════════════════
+const NILS_CONTEXT = `You are Interview Buddy, a real-time interview assistant for Nils David.
+
+CRITICAL: You speak IN NILS'S VOICE. Every answer sounds like a confident, collaborative, grounded professional — not a textbook or a robot. Nils is direct, human, results-oriented. He never uses hollow filler phrases. He sounds like a real person who knows his craft.
+
+=== WHO NILS IS ===
+Name: Nils David | Target: Sales Operations Manager / RevOps Manager | Location: Phoenix AZ (remote only)
+
+=== POSITIONING ===
+Nils is a Sales Ops and RevOps operator who builds with AI. Core value: he doesn't just use systems — he architects them. At King of Funding he built the entire GTM and revenue operations infrastructure from zero. That is his lead proof point. Collaborative tone always — he built alongside founders and small teams, never as a lone wolf.
+
+=== KING OF FUNDING — PRIMARY PROOF POINT ===
+Company: fintech services, helps startups get credit-prepped for underwriting. EIN-only business credit cards, no personal guarantee, 24-month no-interest intro, $25k+ per card.
+Role: GTM & Revenue Operations Contractor | Jan 2023 – Jan 2024 | Remote | Supervisor: Sal Saleh (founder) | Team: 2–5 people
+
+WHAT HE BUILT:
+- GoHighLevel CRM end-to-end from scratch: SALES pipeline + CLIENT pipeline, full stage logic, automated close transition, lead routing, chatbot qualification with 4 de-qualifying questions, no-show sequences
+- Multi-stage lead-to-client system: Stage 1 chatbot with 4 de-qualifying questions on first DM → Stage 2 Heyflow eligibility questionnaire (pass = Calendly booking, fail = follow-up nurture) → Stage 3 Free Strategy Call (closed = PandaDoc contract, not closed = follow-up automation) → Stage 4 post-close onboarding automation (Email + SMS with Kickstarter questionnaire, then onboarding call booking)
+- 6 Slack notification channels tied to GoHighLevel pipeline stage changes via Zapier — real-time team visibility at every stage: #1-new-leads, #2-eligibility-completed, #3-booked-fs-call, #4-closed, #5-kickstarter-complete, #6-booked-ob-call
+- Connected GoHighLevel, Asana, Heyflow via Zapier — eliminated all manual handoffs between tools
+- Built full back-office infrastructure: onboarding call flow documents, post-call sequences, email templates, master tracker spreadsheet, client application tracker, product breakdowns, contractor agreements
+- Built landing pages, email campaigns, logo and brand assets, video ad content
+- Ran client onboarding calls using the structured call flow he built
+
+IMPACT (qualitative only — no fabricated numbers):
+- Zero infrastructure to fully functioning lead-to-client system in ~12 months
+- Eliminated manual handoffs across the entire sales and onboarding process
+- Built pipeline visibility the team never had (Slack channels = real-time deal awareness without anyone having to check the CRM)
+- Improved lead quality through two-stage qualification gate before anything hit the sales pipeline
+- Left the business with full documentation, templates, and automation in place
+
+=== ADAPT & EVOLVE CONSULTING ===
+Nils ran his own consulting entity covering 2021–2023 and beyond. Frame honestly — freelance consulting, built systems for clients, owned businesses (Sunni Boi e-commerce, Carte Blanche UX/UI contract work). Used the period to earn certifications and build skills.
+
+=== MORTGAGE CAREER — OPERATIONAL DEPTH ===
+Sr. Loan Processor at Carrington Mortgage, SourcePoint; Loan Processor at Movement Mortgage; other mortgage roles roughly 2013–2021.
+REAL METRICS TO USE IN ANSWERS: Managed pipelines of 15–25 files consistently, some stretches 75–110 loans | Closed 20+ loans/month with under 5% kick-back rate | Ranked top performer, closing 80% of files within 7 days | Hit monthly quota 95% of the time | Built a pipeline spreadsheet that enabled 6 consecutive months exceeding target by 25%+
+Sales Ops relevance: pipeline management under pressure, process optimization, cross-functional coordination (loan officers, underwriters, title companies, real estate agents), documentation rigor, hitting metrics consistently.
+
+=== EARLIER SALES CAREER ===
+Bank of America Relationship Specialist — top 10% of department in add-on sales, exceeded monthly goals by avg 15%, ranked top 20% of floor in first month
+Dish Network Inside Sales — 40% closing rate vs company avg 25%, top 10% company-wide for add-on sales, 95%+ on customer survey scorecards
+SiteLock Account Executive — highest retention and renewal rate 3 months in a row, exceeded monthly quotas by 12%+, consultative selling approach
+NAA Life Insurance — 30% average closing rate, prospected 50 people/week
+
+=== SKILLS & TOOLS ===
+CRM: GoHighLevel (advanced — built end-to-end), HubSpot (certified — Sales + Admin), Salesforce (end-user experience only — never overclaim)
+Automation: Zapier (complex multi-tool integrations built), Heyflow/Hayflow (qualification form builds), Asana
+Sales Ops/RevOps: Pipeline architecture and stage logic, lead routing, qualification systems, MQL-to-SQL process design, KPI definition and tracking, sales forecasting support, lifecycle segmentation, CRM dashboards and reporting, deal velocity tracking
+Tech: HTML5 (solid), CSS (solid), JavaScript (functional), SQL (foundational), React Native (in progress — Naked Konfidence app)
+Certifications: Google Project Management, Google UX Design, Google Digital Marketing & E-Commerce, HubSpot Sales, HubSpot Admin, Product Analytics (Pendo), Six Sigma Yellow Belt, NASM CPT, Precision Nutrition PN1
+
+=== STAR STORIES (deploy these in behavioral questions) ===
+STORY 1 — Built GTM stack from zero (King of Funding):
+S: KOF had no CRM, no pipeline, no automation, no onboarding system when Nils came on.
+T: Build the full revenue ops and GTM infrastructure as a contractor working alongside the founder.
+A: Configured GoHighLevel end-to-end, designed multi-stage pipeline logic, built chatbot qualification, Heyflow intake forms, connected everything via Zapier, built 6 Slack notification channels tied to every pipeline stage, structured the full onboarding call flow and post-close sequences.
+R: Went from zero to a fully functioning lead-to-client system — first DM to signed contract to onboarded client — with minimal manual intervention; left the business with full docs and automation in place.
+
+STORY 2 — Automated lead qualification:
+S: Unqualified leads were entering the pipeline and wasting the team's time on deals that couldn't close.
+T: Build a qualification gate before leads ever reached the CRM.
+A: Built a chatbot with 4 de-qualifying questions as first contact, then a Heyflow eligibility questionnaire as a second gate — only leads who passed both steps got a strategy call booking.
+R: Improved the quality of leads hitting the calendar; the team spent their time on closeable deals, not dead ends.
+
+STORY 3 — Pipeline visibility via Slack automation:
+S: Small team had no real-time visibility into where deals were — someone had to manually check the CRM.
+T: Give the whole team live deal stage awareness without adding any reporting overhead.
+A: Built 6 Slack channels tied to GoHighLevel pipeline stage changes via Zapier — every stage transition automatically fired a notification to the right channel.
+R: The team always knew exactly where every lead and client was in real time, without opening the CRM.
+
+STORY 4 — Client onboarding system:
+S: When a deal closed, there was no structured process — clients fell through the cracks post-signature.
+T: Build a repeatable, automated onboarding system.
+A: Designed post-close automation with Email + SMS Kickstarter questionnaire, built the intake form in Heyflow, created a structured Onboarding Call Flow document, built post-call follow-up sequences.
+R: Every client moved from close to fully onboarded through the same consistent, documented, automated process — reduced errors and improved the early client experience.
+
+STORY 5 — Wearing many hats in a small team:
+S: Small team, broad scope, nothing built yet — had to cover CRM, automation, marketing, design, and client-facing work simultaneously.
+T: Deliver a functioning system without dropping any piece of the scope.
+A: Prioritized infrastructure first (CRM and pipeline), then marketing assets, then client-facing work — collaborated closely with the founder throughout to stay aligned on priorities.
+R: Delivered a functioning revenue ops and GTM system in ~12 months and left full documentation so the team could operate independently.
+
+STORY 6 — Mortgage pipeline performance:
+S: High-volume loan processing environment, managing 15–25 files at a time under strict compliance timelines.
+T: Maintain close rate and quality consistently at high volume.
+A: Built a custom pipeline spreadsheet to track and organize every file, coordinated cross-functionally with loan officers, underwriters, and title companies, standardized documentation workflow.
+R: 20+ loans/month with under 5% kick-back rate, 80% of files closed within 7 days, hit quota 95% of the time, exceeded monthly targets by 25%+ for 6 consecutive months using the tracking system.
+
+=== TOUGH QUESTION ANGLES ===
+WHY NO FORMAL REVOPS TITLE: "The title didn't exist at King of Funding — I was the only operations person on the team. What I actually did was RevOps work: designed the CRM, built the pipeline logic, automated the handoffs, created the reporting visibility. The work is what it is regardless of what it was called."
+
+EMPLOYMENT GAPS: "There were periods where I was running my own consulting business, building client systems, and navigating some difficult personal circumstances. What I kept doing throughout was building — certifications, client projects, keeping my skills current. That period gave me a depth of operational and systems-building experience I couldn't have gotten in a traditional employee role."
+
+CONTRACTOR VS EMPLOYEE: "I was a contractor, yes — but I had the full scope of an operations manager. I owned the architecture decisions, built the infrastructure from zero, and stayed accountable to outcomes throughout the engagement. The scope wasn't contractor-sized at all."
+
+THREE TO FIVE YEAR PLAN: "I want to go deep in revenue operations — own the full stack from pipeline architecture to reporting to enablement. I'm drawn to companies where I can build things that didn't exist before and see the direct impact on how the team performs. I want to grow into a senior ops leadership role over time, but right now I'm focused on finding the right company to do that with."
+
+WHY THIS COMPANY: "I'm looking for a stage where the ops infrastructure isn't fully built yet — where I can architect things, not just maintain them. The work I did at King of Funding was the most energizing of my career because it was all creation from zero. That's the environment I want to be in."
+
+=== ANSWER FORMAT — FOLLOW EXACTLY ===
+Every answer MUST follow this exact structure:
+1. OPENER: One natural, confident sentence Nils can say out loud immediately. It shows he heard the question, buys him a beat to collect thoughts, and sounds like a real human — NOT scripted. NEVER start with "Great question" or "That's a great question." NEVER start with "So" or "Well." Start with confidence directly.
+2. POINTS: 2–4 supporting points as plain conversational sentences grounded in his actual experience. Specific. No fluff.
+
+KEEP IT TIGHT: Opener = 1 sentence. Each point = 1–2 sentences max. Total spoken answer under 60 seconds.
+
+NEVER fabricate metrics. NEVER position Salesforce as more than end-user. NEVER use "synergy," "leverage," "rockstar," "ninja," "I am passionate about," or any hollow corporate filler. ALWAYS sound collaborative — he worked with founders and small teams, never built things in isolation.
+
+When generating 2 alternative answer options for Answer Fix, return ONLY valid JSON — no markdown, no explanation, nothing else:
+{"opt1_title":"[2-4 word angle name]","opt1_desc":"[one line — what makes this angle different]","opt2_title":"[2-4 word angle name]","opt2_desc":"[one line — what makes this angle different]"}
+
+When generating a full answer (main flow or Answer Fix), return ONLY valid JSON — no markdown, no explanation, nothing else:
+{"opener":"[one natural confident opening sentence]","points":["point 1","point 2","point 3"]}`;
+
+// ══════════════════════════════════════════════
+// API KEY MANAGEMENT
+// ══════════════════════════════════════════════
+let API_KEY = '';
+
+function loadApiKey() {
+  try { API_KEY = localStorage.getItem('ib_api_key') || ''; } catch(e) { API_KEY = ''; }
+}
+
+function saveApiKey() {
+  const input = document.getElementById('api-key-input');
+  const key = (input.value || '').trim();
+  if (!key.startsWith('sk-ant-') && !key.startsWith('sk-')) {
+    input.style.borderColor = 'var(--red-border)';
+    input.placeholder = 'Key must start with sk-ant-...';
+    setTimeout(() => { input.style.borderColor = ''; input.placeholder = 'sk-ant-...'; }, 2000);
+    return;
+  }
+  try { localStorage.setItem('ib_api_key', key); } catch(e) {}
+  API_KEY = key;
+  showMainUI();
+}
+
+function showSetupScreen() {
+  document.getElementById('setup-screen').style.display = 'flex';
+  document.getElementById('main').style.display = 'none';
+  document.getElementById('bottom-bar').style.display = 'none';
+}
+
+function showMainUI() {
+  document.getElementById('setup-screen').style.display = 'none';
+  document.getElementById('main').style.display = 'flex';
+  document.getElementById('bottom-bar').style.display = 'flex';
+}
+
+function init() {
+  loadApiKey();
+  if (API_KEY) { showMainUI(); }
+  else { showSetupScreen(); }
+}
+
+// ══════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════
+let isListening = false;
+let recognition = null;
+let currentQuestion = null;
+let countdownTimer = null;
+let countdownInterval = null;
+let isProcessing = false;
+
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+const speechSupported = !!SpeechRecognition;
+
+// ══════════════════════════════════════════════
+// SPEECH RECOGNITION
+// ══════════════════════════════════════════════
+function initRecognition() {
+  if (!speechSupported) return null;
+  const r = new SpeechRecognition();
+  r.continuous = true;
+  r.interimResults = true;
+  r.lang = 'en-US';
+  let fullTranscript = '';
+  let silenceTimer = null;
+
+  r.onresult = (e) => {
+    let finalText = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) finalText += e.results[i][0].transcript + ' ';
+    }
+    if (finalText.trim()) fullTranscript += finalText;
+    if (silenceTimer) clearTimeout(silenceTimer);
+    silenceTimer = setTimeout(() => {
+      const t = fullTranscript.trim();
+      fullTranscript = '';
+      if (t.length > 10 && looksLikeQuestion(t)) onQuestionDetected(t);
+    }, 2400);
+  };
+
+  r.onerror = (e) => {
+    if (isListening && ['no-speech','audio-capture','network'].includes(e.error)) {
+      setTimeout(() => { if (isListening) { try { r.start(); } catch(ex){} } }, 700);
+    }
+  };
+  r.onend = () => { if (isListening) setTimeout(() => { try { r.start(); } catch(e){} }, 350); };
+  return r;
+}
+
+function looksLikeQuestion(text) {
+  const t = text.toLowerCase().trim();
+  const starters = ['tell me','tell us','how','what','why','when','where','who','describe','explain','walk me','walk us','can you','could you','would you','have you','do you','did you','are you','were you','give me','give us','share','talk to me','talk about','what is','what are','what was','what were','what would','why did','why do'];
+  return starters.some(w => t.startsWith(w)) || t.includes('?') || t.length > 45;
+}
+
+// ══════════════════════════════════════════════
+// LISTEN CONTROLS
+// ══════════════════════════════════════════════
+function toggleListen() {
+  if (isListening) stopListening();
+  else startListening();
+}
+
+function startListening() {
+  isListening = true;
+  const btn = document.getElementById('listen-btn');
+  btn.innerHTML = `<svg viewBox="0 0 24 24" style="fill:currentColor;width:18px;height:18px;flex-shrink:0"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>Stop Listening`;
+  btn.classList.add('active');
+  setStatus('listening','Listening...');
+  hideIdle();
+  if (!recognition) recognition = initRecognition();
+  if (recognition) { try { recognition.start(); } catch(e){} }
+  else setStatus('processing','Mic unavailable — use Question Fix');
+}
+
+function stopListening() {
+  isListening = false;
+  const btn = document.getElementById('listen-btn');
+  btn.innerHTML = `<svg viewBox="0 0 24 24" style="fill:currentColor;width:18px;height:18px;flex-shrink:0"><path d="M12 1a4 4 0 0 1 4 4v6a4 4 0 0 1-8 0V5a4 4 0 0 1 4-4zm-6.5 10a6.5 6.5 0 0 0 13 0h-2a4.5 4.5 0 0 1-9 0h-2zM11 20.95V23h2v-2.05A9 9 0 0 0 21 12h-2a7 7 0 1 1-14 0H3a9 9 0 0 0 8 8.95z"/></svg>Start Listening`;
+  btn.classList.remove('active');
+  setStatus('ready','Ready');
+  if (recognition) { try { recognition.stop(); } catch(e){} }
+  clearCountdown();
+}
+
+function setStatus(state, text) {
+  const pill = document.getElementById('status-pill');
+  const label = document.getElementById('status-text');
+  pill.className = '';
+  if (state !== 'ready') pill.classList.add(state);
+  label.textContent = text;
+}
+
+function hideIdle() {
+  const idle = document.getElementById('idle-state');
+  if (idle) idle.style.display = 'none';
+}
+
+function scrollBottom() {
+  const main = document.getElementById('main');
+  setTimeout(() => { main.scrollTop = main.scrollHeight; }, 80);
+}
+
+function clearCountdown() {
+  if (countdownTimer) { clearTimeout(countdownTimer); countdownTimer = null; }
+  if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
+}
+
+function h(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function escA(s) { return String(s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
+
+// ══════════════════════════════════════════════
+// QUESTION DETECTED
+// ══════════════════════════════════════════════
+function onQuestionDetected(questionText) {
+  if (isProcessing) return;
+  currentQuestion = questionText;
+  setStatus('processing','Question detected');
+  ['question-card','answer-card'].forEach(id => { const el = document.getElementById(id); if(el) el.remove(); });
+
+  const card = document.createElement('div');
+  card.id = 'question-card';
+  card.className = 'card question-card';
+  card.innerHTML = `
+    <div class="card-label"><div class="dot"></div>Detected question</div>
+    <div class="question-text" id="q-text">${h(questionText)}</div>
+    <div class="countdown-bar"><div class="countdown-fill" id="countdown-fill"></div></div>
+    <div class="question-actions" id="question-actions">
+      <button class="btn btn-amber" onclick="startRepeat()">🔄 Question Repeat</button>
+      <button class="btn btn-ghost" onclick="showQuestionFix()">✏️ Question Fix</button>
+      <button class="btn btn-ghost" onclick="dismissQuestion()">✕</button>
+    </div>`;
+  document.getElementById('main').appendChild(card);
+  scrollBottom();
+  startCountdown(3, () => {
+    if (!document.getElementById('fix-input-area') && !document.getElementById('repeat-area'))
+      generateAnswer(currentQuestion);
+  });
+}
+
+function startCountdown(secs, cb) {
+  clearCountdown();
+  const step = 50;
+  let elapsed = 0;
+  countdownInterval = setInterval(() => {
+    elapsed += step;
+    const f = document.getElementById('countdown-fill');
+    if (f) f.style.width = Math.max(0,100-(elapsed/(secs*1000))*100)+'%';
+    if (elapsed >= secs*1000) clearInterval(countdownInterval);
+  }, step);
+  countdownTimer = setTimeout(cb, secs*1000);
+}
+
+function dismissQuestion() {
+  clearCountdown();
+  const card = document.getElementById('question-card');
+  if (card) card.remove();
+  setStatus(isListening?'listening':'ready', isListening?'Listening...':'Ready');
+}
+
+// ══════════════════════════════════════════════
+// QUESTION REPEAT
+// ══════════════════════════════════════════════
+function startRepeat() {
+  clearCountdown();
+  const fill = document.getElementById('countdown-fill');
+  if (fill) fill.style.width = '100%';
+  const qCard = document.getElementById('question-card');
+  if (!qCard || document.getElementById('repeat-area')) return;
+
+  const ra = document.createElement('div');
+  ra.id = 'repeat-area';
+  ra.className = 'repeat-card';
+  ra.innerHTML = `<div class="repeat-anim">🎤</div><div style="flex:1"><div style="font-weight:600;margin-bottom:2px;">Re-listening...</div><div style="font-size:12px;opacity:0.8;">Ask them to repeat the question</div></div><button class="btn btn-ghost" onclick="cancelRepeat()" style="font-size:11px;">Cancel</button>`;
+  qCard.appendChild(ra);
+  setStatus('listening','Re-listening...');
+  scrollBottom();
+
+  if (recognition) { try { recognition.stop(); } catch(e){} }
+  if (!SpeechRecognition) { cancelRepeat(); return; }
+  const r2 = new SpeechRecognition();
+  r2.continuous = false; r2.interimResults = false; r2.lang = 'en-US';
+  let heard = '';
+  r2.onresult = (e) => { for(let i=0;i<e.results.length;i++) heard += e.results[i][0].transcript+' '; };
+  r2.onend = () => {
+    const raEl = document.getElementById('repeat-area');
+    if (raEl) raEl.remove();
+    if (heard.trim().length > 8) {
+      currentQuestion = heard.trim();
+      const qt = document.getElementById('q-text');
+      if (qt) qt.textContent = currentQuestion;
+      generateAnswer(currentQuestion);
+    } else {
+      startCountdown(2, () => generateAnswer(currentQuestion));
+    }
+    if (recognition && isListening) setTimeout(() => { try { recognition.start(); } catch(ex){} }, 400);
+  };
+  try { r2.start(); } catch(e) { cancelRepeat(); }
+  setTimeout(() => { try { r2.stop(); } catch(ex){} }, 12000);
+}
+
+function cancelRepeat() {
+  const ra = document.getElementById('repeat-area');
+  if (ra) ra.remove();
+  setStatus(isListening?'listening':'ready', isListening?'Listening...':'Ready');
+  startCountdown(2, () => generateAnswer(currentQuestion));
+  if (recognition && isListening) setTimeout(() => { try { recognition.start(); } catch(ex){} }, 300);
+}
+
+// ══════════════════════════════════════════════
+// QUESTION FIX
+// ══════════════════════════════════════════════
+function showQuestionFix() {
+  clearCountdown();
+  const fill = document.getElementById('countdown-fill');
+  if (fill) fill.style.width = '100%';
+  const qCard = document.getElementById('question-card');
+  if (!qCard || document.getElementById('fix-input-area')) return;
+
+  const fa = document.createElement('div');
+  fa.id = 'fix-input-area';
+  fa.className = 'fix-input-card';
+  fa.innerHTML = `
+    <div style="font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:var(--text-dim)">Correct the question</div>
+    <textarea id="fix-textarea" rows="2" placeholder="Type what was actually asked...">${h(currentQuestion||'')}</textarea>
+    <div class="fix-input-row">
+      <button class="btn btn-accent" onclick="submitQuestionFix()" style="flex:1">Generate Answer</button>
+      <button class="btn btn-ghost" onclick="cancelQuestionFix()">Cancel</button>
+    </div>`;
+  qCard.appendChild(fa);
+  setTimeout(() => { const ta = document.getElementById('fix-textarea'); if(ta){ta.focus();ta.select();} }, 120);
+  scrollBottom();
+}
+
+function cancelQuestionFix() {
+  const fa = document.getElementById('fix-input-area');
+  if (fa) fa.remove();
+  startCountdown(2, () => generateAnswer(currentQuestion));
+}
+
+function submitQuestionFix() {
+  const ta = document.getElementById('fix-textarea');
+  if (!ta || !ta.value.trim()) return;
+  currentQuestion = ta.value.trim();
+  const qt = document.getElementById('q-text');
+  if (qt) qt.textContent = currentQuestion;
+  const fa = document.getElementById('fix-input-area');
+  if (fa) fa.remove();
+  generateAnswer(currentQuestion);
+}
+
+// ══════════════════════════════════════════════
+// GENERATE ANSWER
+// ══════════════════════════════════════════════
+async function generateAnswer(question) {
+  if (isProcessing) return;
+  isProcessing = true;
+  setStatus('processing','Generating...');
+  const old = document.getElementById('answer-card');
+  if (old) old.remove();
+  const qa = document.getElementById('question-actions');
+  if (qa) qa.style.opacity = '0.4';
+
+  const aCard = document.createElement('div');
+  aCard.id = 'answer-card';
+  aCard.className = 'card answer-card';
+  aCard.innerHTML = `
+    <div class="card-label"><div class="dot"></div>Your answer</div>
+    <div class="inline-loader" id="answer-loader"><div class="loader-dots"><span></span><span></span><span></span></div><span>Crafting your answer...</span></div>
+    <div id="answer-body-wrap" style="display:none"></div>
+    <div id="answer-actions-wrap" class="answer-actions" style="display:none"></div>
+    <div id="answer-fix-wrap" style="display:none"></div>`;
+  document.getElementById('main').appendChild(aCard);
+  scrollBottom();
+
+  try {
+    const data = await callClaude(`The interviewer just asked: "${question}"\n\nGenerate Nils's answer. Return ONLY valid JSON, no markdown, nothing else:\n{"opener":"[one natural confident opening sentence]","points":["point 1","point 2","point 3"]}`);
+    const parsed = parseJSON(data);
+    if (parsed && parsed.opener) renderAnswer(parsed);
+    else renderError('answer-body-wrap');
+  } catch(e) { renderError('answer-body-wrap'); }
+
+  isProcessing = false;
+  setStatus(isListening?'listening':'ready', isListening?'Listening...':'Ready');
+}
+
+function renderAnswer(parsed, bodyId, actionsId) {
+  bodyId = bodyId || 'answer-body-wrap';
+  actionsId = actionsId || 'answer-actions-wrap';
+  const loader = document.getElementById('answer-loader');
+  if (loader) loader.style.display = 'none';
+  const body = document.getElementById(bodyId);
+  if (!body) return;
+
+  const pts = (parsed.points||[]).map(p => `<div class="answer-point"><div class="point-marker"></div><div class="point-text">${h(p)}</div></div>`).join('');
+  body.innerHTML = `<div class="answer-body"><div class="answer-opener">${h(parsed.opener)}</div><div class="answer-points">${pts}</div></div>`;
+  body.style.display = 'block';
+
+  const acts = document.getElementById(actionsId);
+  if (acts) {
+    acts.innerHTML = `<button class="btn btn-accent" onclick="showAnswerFix()">↻ Answer Fix</button>`;
+    acts.style.display = 'block';
+  }
+  scrollBottom();
+}
+
+function renderError(targetId) {
+  const loader = document.getElementById('answer-loader');
+  if (loader) loader.style.display = 'none';
+  const el = document.getElementById(targetId);
+  if (el) {
+    el.innerHTML = `<div style="padding:14px 16px;font-size:14px;color:var(--red)">Couldn't generate an answer. Tap Answer Fix to try a different angle, or use Question Fix to retype the question.</div>`;
+    el.style.display = 'block';
+  }
+}
+
+// ══════════════════════════════════════════════
+// ANSWER FIX
+// ══════════════════════════════════════════════
+async function showAnswerFix() {
+  const fixWrap = document.getElementById('answer-fix-wrap');
+  if (!fixWrap) return;
+
+  fixWrap.innerHTML = `<div class="answer-fix-section"><div class="fix-label">Answer Fix — choose an angle</div><div class="inline-loader"><div class="loader-dots"><span></span><span></span><span></span></div><span>Generating alternatives...</span></div></div>`;
+  fixWrap.style.display = 'block';
+  scrollBottom();
+
+  try {
+    const data = await callClaude(`For this interview question: "${currentQuestion}"\n\nGenerate exactly 2 meaningfully different answer angles for Nils. Make them genuinely different — different story, different emphasis, different framing. Return ONLY valid JSON, no markdown, nothing else:\n{"opt1_title":"[2-4 word angle name]","opt1_desc":"[one line — what makes it different]","opt2_title":"[2-4 word angle name]","opt2_desc":"[one line — what makes it different]"}`);
+    const opts = parseJSON(data);
+    if (opts && opts.opt1_title && opts.opt2_title) {
+      fixWrap.innerHTML = `
+        <div class="answer-fix-section">
+          <div class="fix-label">Answer Fix — choose an angle</div>
+          <div class="fix-options">
+            <button class="fix-option" id="fix-opt-1" onclick="selectFixOption(1,'${escA(opts.opt1_title)}','${escA(opts.opt1_desc)}')">
+              <div class="fix-opt-title">${h(opts.opt1_title)}</div>
+              <div class="fix-opt-desc">${h(opts.opt1_desc)}</div>
+            </button>
+            <button class="fix-option" id="fix-opt-2" onclick="selectFixOption(2,'${escA(opts.opt2_title)}','${escA(opts.opt2_desc)}')">
+              <div class="fix-opt-title">${h(opts.opt2_title)}</div>
+              <div class="fix-opt-desc">${h(opts.opt2_desc)}</div>
+            </button>
+          </div>
+          <div id="new-answer-wrap"></div>
+        </div>`;
+    } else {
+      fixWrap.innerHTML = `<div style="padding:12px;font-size:13px;color:var(--red)">Couldn't load alternatives. Try again.</div>`;
+    }
+  } catch(e) {
+    fixWrap.innerHTML = `<div style="padding:12px;font-size:13px;color:var(--red)">Error — check your API key and connection.</div>`;
+  }
+  scrollBottom();
+}
+
+async function selectFixOption(num, title, desc) {
+  [1,2].forEach(n => { const o = document.getElementById(`fix-opt-${n}`); if(o) o.classList.remove('selected'); });
+  const sel = document.getElementById(`fix-opt-${num}`);
+  if (sel) sel.classList.add('selected');
+
+  const wrap = document.getElementById('new-answer-wrap');
+  if (!wrap) return;
+
+  wrap.innerHTML = `
+    <div class="answer-new-card">
+      <div class="answer-new-label"><div class="dot"></div>${h(title)}</div>
+      <div class="inline-loader" id="new-loader"><div class="loader-dots"><span></span><span></span><span></span></div><span>Generating...</span></div>
+      <div id="new-body" style="display:none"></div>
+    </div>`;
+  scrollBottom();
+
+  try {
+    const data = await callClaude(`The interviewer asked: "${currentQuestion}"\n\nGenerate an alternative answer for Nils using this specific angle: "${title} — ${desc}"\n\nReturn ONLY valid JSON, no markdown, nothing else:\n{"opener":"[one natural confident opening sentence]","points":["point 1","point 2","point 3"]}`);
+    const parsed = parseJSON(data);
+    const loader = document.getElementById('new-loader');
+    if (loader) loader.style.display = 'none';
+    if (parsed && parsed.opener) {
+      const nb = document.getElementById('new-body');
+      if (nb) {
+        const pts = (parsed.points||[]).map(p => `<div class="answer-point"><div class="point-marker"></div><div class="point-text">${h(p)}</div></div>`).join('');
+        nb.innerHTML = `<div class="answer-body"><div class="answer-opener">${h(parsed.opener)}</div><div class="answer-points">${pts}</div></div>`;
+        nb.style.display = 'block';
+      }
+    } else {
+      const nb = document.getElementById('new-body');
+      if (nb) { nb.innerHTML = `<div style="padding:14px 16px;font-size:14px;color:var(--red)">Couldn't generate — try the other angle.</div>`; nb.style.display = 'block'; }
+    }
+  } catch(e) {
+    const loader = document.getElementById('new-loader');
+    if (loader) loader.style.display = 'none';
+    const nb = document.getElementById('new-body');
+    if (nb) { nb.innerHTML = `<div style="padding:14px 16px;font-size:14px;color:var(--red)">Error generating answer.</div>`; nb.style.display = 'block'; }
+  }
+  scrollBottom();
+}
+
+// ══════════════════════════════════════════════
+// CLAUDE API CALL
+// ══════════════════════════════════════════════
+async function callClaude(userPrompt) {
+  const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': API_KEY,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1000,
+      system: NILS_CONTEXT,
+      messages: [{ role: 'user', content: userPrompt }]
+    })
+  });
+  if (!resp.ok) {
+    const err = await resp.json().catch(()=>({}));
+    if (resp.status === 401) throw new Error('Invalid API key — go to Settings to update it');
+    throw new Error('API error ' + resp.status + ': ' + (err.error?.message || ''));
+  }
+  const d = await resp.json();
+  return d.content?.[0]?.text || '';
+}
+
+function parseJSON(text) {
+  if (!text) return null;
+  try { return JSON.parse(text.replace(/```json|```/g,'').trim()); } catch(e) {}
+  const m = text.match(/\{[\s\S]*\}/);
+  if (m) { try { return JSON.parse(m[0]); } catch(e){} }
+  return null;
+}
+
+// ══════════════════════════════════════════════
+// SETTINGS (change API key)
+// ══════════════════════════════════════════════
+function showSettings() {
+  stopListening();
+  try { localStorage.removeItem('ib_api_key'); } catch(e) {}
+  API_KEY = '';
+  showSetupScreen();
+  setTimeout(() => {
+    const input = document.getElementById('api-key-input');
+    if (input) input.focus();
+  }, 200);
+}
+
+// ══════════════════════════════════════════════
+// CLEAR SESSION (long press header)
+// ══════════════════════════════════════════════
+let pressTimer = null;
+document.getElementById('header').addEventListener('touchstart', () => {
+  pressTimer = setTimeout(() => {
+    // Show options
+    const choice = confirm('What do you want to do?\n\nOK = Clear session\nCancel = Change API key');
+    if (choice) {
+      clearCountdown();
+      document.getElementById('main').innerHTML = `
+        <div id="idle-state">
+          <div class="idle-icon">🎯</div>
+          <h2>Ready when you are</h2>
+          <p>Tap Start Listening. I'll detect questions from the audio and generate answers in your voice.</p>
+          <p class="help-tip">Long-press the header to clear session or change API key</p>
+        </div>`;
+      currentQuestion = null;
+      isProcessing = false;
+      setStatus(isListening?'listening':'ready', isListening?'Listening...':'Ready');
+    } else {
+      showSettings();
+    }
+  }, 900);
+});
+['touchend','touchcancel'].forEach(ev => {
+  document.getElementById('header').addEventListener(ev, () => { if(pressTimer) clearTimeout(pressTimer); });
+});
+
+// ══════════════════════════════════════════════
+// DESKTOP TEST (T key = random test question)
+// ══════════════════════════════════════════════
+document.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
+  if (e.key === ' ') { e.preventDefault(); if(API_KEY) toggleListen(); }
+  if (e.key === 't' && API_KEY) {
+    const qs = [
+      "Tell me about yourself and why you're interested in this role.",
+      "Walk me through how you've built a CRM system from scratch.",
+      "Tell me about a time you had to manage a complex process with limited resources.",
+      "How do you approach pipeline reporting and what metrics do you prioritize?",
+      "Can you describe a time you automated a manual process and what the result was?",
+      "Why are you making this career move now?",
+      "Tell me about a time you worked cross-functionally to get something done.",
+      "Walk me through how you handle lead routing and qualification.",
+      "Tell me about a time you dealt with an employment gap or non-linear career path.",
+      "What does a great RevOps setup look like to you?",
+      "How do you think about the relationship between sales and operations?",
+      "Tell me about a time something you built didn't work as expected.",
+    ];
+    hideIdle();
+    onQuestionDetected(qs[Math.floor(Math.random()*qs.length)]);
+  }
+});
+
+document.addEventListener('touchmove', (e) => {
+  if (!e.target.closest('#main')) e.preventDefault();
+}, { passive: false });
+
+// ══════════════════════════════════════════════
+// BOOT
+// ══════════════════════════════════════════════
+init();
+</script>
+</body>
+</html>
