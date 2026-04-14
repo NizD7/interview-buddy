@@ -173,6 +173,33 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 #main::-webkit-scrollbar{width:3px;}
 #main::-webkit-scrollbar-track{background:transparent;}
 #main::-webkit-scrollbar-thumb{background:var(--border-mid);border-radius:3px;}
+
+/* ── NOTES PANEL ── */
+#notes-panel{
+  display:none;flex:1;overflow-y:auto;overflow-x:hidden;
+  -webkit-overflow-scrolling:touch;
+  padding:20px 16px 40px;
+  flex-direction:column;gap:0;
+}
+#notes-panel.visible{display:flex;}
+.notes-header-row{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px;margin-top:20px;}
+.notes-header-row:first-child{margin-top:0;}
+.notes-section-title{font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--accent);padding-bottom:8px;border-bottom:1px solid var(--border);width:100%;margin-bottom:12px;margin-top:20px;}
+.notes-section-title:first-child{margin-top:0;}
+.notes-meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;}
+.notes-meta-item{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:11px 13px;}
+.notes-meta-label{font-size:10px;font-weight:600;letter-spacing:0.07em;text-transform:uppercase;color:var(--text-dim);margin-bottom:3px;}
+.notes-meta-value{font-size:14px;font-weight:500;color:var(--text);line-height:1.4;}
+.notes-block{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-bottom:10px;}
+.notes-block p{font-size:14px;color:var(--text-muted);line-height:1.7;margin-bottom:8px;}
+.notes-block p:last-child{margin-bottom:0;}
+.notes-block ul{list-style:none;display:flex;flex-direction:column;gap:8px;}
+.notes-block ul li{font-size:14px;color:var(--text-muted);line-height:1.6;padding-left:14px;position:relative;}
+.notes-block ul li::before{content:'·';position:absolute;left:0;color:var(--accent);font-weight:700;}
+.notes-block ul li strong{color:var(--text);font-weight:500;}
+.notes-empty{text-align:center;padding:60px 20px;color:var(--text-dim);font-size:14px;line-height:1.7;}
+.notes-empty .notes-empty-icon{font-size:36px;margin-bottom:12px;}
+.notes-btn-active{background:var(--accent-soft)!important;border-color:var(--accent-border)!important;color:var(--accent)!important;}
 </style>
 </head>
 <body>
@@ -185,7 +212,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
       <h1>Interview Buddy</h1>
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
-      <button id="notes-btn" onclick="openNotes()" style="padding:5px 13px;border-radius:20px;border:1px solid var(--border-mid);background:var(--surface2);color:var(--text-muted);font-family:var(--font);font-size:12px;font-weight:600;cursor:pointer;letter-spacing:0.01em;-webkit-appearance:none;">📋 Notes</button>
+      <button id="notes-btn" onclick="toggleNotes()" style="padding:5px 13px;border-radius:20px;border:1px solid var(--border-mid);background:var(--surface2);color:var(--text-muted);font-family:var(--font);font-size:12px;font-weight:600;cursor:pointer;letter-spacing:0.01em;-webkit-appearance:none;transition:all 0.2s;">📋 Notes</button>
       <div id="status-pill">
         <div id="status-dot"></div>
         <span id="status-text">Ready</span>
@@ -221,6 +248,11 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
       <svg viewBox="0 0 24 24"><path d="M12 1a4 4 0 0 1 4 4v6a4 4 0 0 1-8 0V5a4 4 0 0 1 4-4zm-6.5 10a6.5 6.5 0 0 0 13 0h-2a4.5 4.5 0 0 1-9 0h-2zM11 20.95V23h2v-2.05A9 9 0 0 0 21 12h-2a7 7 0 1 1-14 0H3a9 9 0 0 0 8 8.95z"/></svg>
       Start Listening
     </button>
+  </div>
+
+  <!-- NOTES PANEL -->
+  <div id="notes-panel">
+    <div id="notes-content">%%PREP_NOTES%%</div>
   </div>
 
 </div>
@@ -343,12 +375,31 @@ When generating a full answer (main flow or Answer Fix), return ONLY valid JSON 
 {"opener":"[one natural confident opening sentence]","points":["point 1","point 2","point 3"]}`;
 
 // ══════════════════════════════════════════════
-// NOTION NOTES PAGE
+// NOTES PANEL TOGGLE
 // ══════════════════════════════════════════════
-const NOTION_NOTES_URL = 'https://www.notion.so/Interview-Prep-Notes-342c4ab6116881bfbcc7e762261c2a33';
+let notesVisible = false;
 
-function openNotes() {
-  window.open(NOTION_NOTES_URL, '_blank');
+function toggleNotes() {
+  notesVisible = !notesVisible;
+  const panel = document.getElementById('notes-panel');
+  const main  = document.getElementById('main');
+  const bar   = document.getElementById('bottom-bar');
+  const btn   = document.getElementById('notes-btn');
+
+  if (notesVisible) {
+    panel.classList.add('visible');
+    main.style.display  = 'none';
+    bar.style.display   = 'none';
+    btn.classList.add('notes-btn-active');
+    btn.textContent = '← Back';
+    if (isListening) stopListening();
+  } else {
+    panel.classList.remove('visible');
+    main.style.display  = 'flex';
+    bar.style.display   = 'flex';
+    btn.classList.remove('notes-btn-active');
+    btn.textContent = '📋 Notes';
+  }
 }
 
 // ══════════════════════════════════════════════
@@ -382,8 +433,10 @@ function showSetupScreen() {
 
 function showMainUI() {
   document.getElementById('setup-screen').style.display = 'none';
-  document.getElementById('main').style.display = 'flex';
-  document.getElementById('bottom-bar').style.display = 'flex';
+  if (!notesVisible) {
+    document.getElementById('main').style.display = 'flex';
+    document.getElementById('bottom-bar').style.display = 'flex';
+  }
 }
 
 function init() {
