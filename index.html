@@ -184,9 +184,12 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
       <div class="logo-dot"></div>
       <h1>Interview Buddy</h1>
     </div>
-    <div id="status-pill">
-      <div id="status-dot"></div>
-      <span id="status-text">Ready</span>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <button id="notes-btn" onclick="openNotes()" style="padding:5px 13px;border-radius:20px;border:1px solid var(--border-mid);background:var(--surface2);color:var(--text-muted);font-family:var(--font);font-size:12px;font-weight:600;cursor:pointer;letter-spacing:0.01em;-webkit-appearance:none;">📋 Notes</button>
+      <div id="status-pill">
+        <div id="status-dot"></div>
+        <span id="status-text">Ready</span>
+      </div>
     </div>
   </div>
 
@@ -340,6 +343,15 @@ When generating a full answer (main flow or Answer Fix), return ONLY valid JSON 
 {"opener":"[one natural confident opening sentence]","points":["point 1","point 2","point 3"]}`;
 
 // ══════════════════════════════════════════════
+// NOTION NOTES PAGE
+// ══════════════════════════════════════════════
+const NOTION_NOTES_URL = 'https://www.notion.so/Interview-Prep-Notes-342c4ab6116881bfbcc7e762261c2a33';
+
+function openNotes() {
+  window.open(NOTION_NOTES_URL, '_blank');
+}
+
+// ══════════════════════════════════════════════
 // API KEY MANAGEMENT
 // ══════════════════════════════════════════════
 let API_KEY = '';
@@ -406,6 +418,8 @@ function initRecognition() {
   let silenceTimer = null;
 
   r.onresult = (e) => {
+    // Don't process audio while generating or after auto-mute
+    if (isProcessing || !isListening) return;
     let finalText = '';
     for (let i = e.resultIndex; i < e.results.length; i++) {
       if (e.results[i].isFinal) finalText += e.results[i][0].transcript + ' ';
@@ -415,7 +429,7 @@ function initRecognition() {
     silenceTimer = setTimeout(() => {
       const t = fullTranscript.trim();
       fullTranscript = '';
-      if (t.length > 10 && looksLikeQuestion(t)) onQuestionDetected(t);
+      if (t.length > 20 && looksLikeQuestion(t)) onQuestionDetected(t);
     }, 2400);
   };
 
@@ -430,8 +444,32 @@ function initRecognition() {
 
 function looksLikeQuestion(text) {
   const t = text.toLowerCase().trim();
-  const starters = ['tell me','tell us','how','what','why','when','where','who','describe','explain','walk me','walk us','can you','could you','would you','have you','do you','did you','are you','were you','give me','give us','share','talk to me','talk about','what is','what are','what was','what were','what would','why did','why do'];
-  return starters.some(w => t.startsWith(w)) || t.includes('?') || t.length > 45;
+
+  // Hard reject: sounds like answer delivery (declarative openers Nils uses)
+  const answerPatterns = [
+    'yeah so','so what i did','what i did','what i built','i built','i designed',
+    'i configured','i created','i worked','i managed','i ran','i owned',
+    'at king of funding','at kof','at carrington','the way i','my approach',
+    'one thing i','going back to','to your point','if i think about',
+    'the result was','what happened was','in that role'
+  ];
+  if (answerPatterns.some(p => t.startsWith(p))) return false;
+
+  // Must pass: interrogative starters
+  const questionStarters = [
+    'tell me','tell us','how','what','why','when','where','who',
+    'describe','explain','walk me','walk us','can you','could you',
+    'would you','have you','do you','did you','are you','were you',
+    'give me','give us','share','talk to me','talk about',
+    "what's","what is","what are","what was","what were","what would",
+    "why did","why do","why would","how do","how did","how would",
+    "if you","imagine","suppose","let's say"
+  ];
+  const hasQuestionStarter = questionStarters.some(w => t.startsWith(w));
+  const hasQuestionMark = t.includes('?');
+
+  // Must be meaningful length and have question structure
+  return (hasQuestionStarter || hasQuestionMark) && t.length > 20;
 }
 
 // ══════════════════════════════════════════════
@@ -515,7 +553,7 @@ function onQuestionDetected(questionText) {
     </div>`;
   document.getElementById('main').appendChild(card);
   scrollBottom();
-  startCountdown(3, () => {
+  startCountdown(1.5, () => {
     if (!document.getElementById('fix-input-area') && !document.getElementById('repeat-area'))
       generateAnswer(currentQuestion);
   });
@@ -664,7 +702,19 @@ async function generateAnswer(question) {
   } catch(e) { renderError('answer-body-wrap'); }
 
   isProcessing = false;
-  setStatus(isListening?'listening':'ready', isListening?'Listening...':'Ready');
+  // AUTO-MUTE: stop listening after answer fires to prevent picking up Nils's spoken answer
+  if (isListening) {
+    isListening = false;
+    const btn = document.getElementById('listen-btn');
+    if (btn) {
+      btn.innerHTML = `<svg viewBox="0 0 24 24" style="fill:currentColor;width:18px;height:18px;flex-shrink:0"><path d="M12 1a4 4 0 0 1 4 4v6a4 4 0 0 1-8 0V5a4 4 0 0 1 4-4zm-6.5 10a6.5 6.5 0 0 0 13 0h-2a4.5 4.5 0 0 1-9 0h-2zM11 20.95V23h2v-2.05A9 9 0 0 0 21 12h-2a7 7 0 1 1-14 0H3a9 9 0 0 0 8 8.95z"/></svg>Start Listening`;
+      btn.classList.remove('active');
+    }
+    if (recognition) { try { recognition.stop(); } catch(e){} }
+    setStatus('ready', 'Muted — tap to re-arm');
+  } else {
+    setStatus(isListening?'listening':'ready', isListening?'Listening...':'Ready');
+  }
 }
 
 function renderAnswer(parsed, bodyId, actionsId) {
